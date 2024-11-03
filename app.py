@@ -7,6 +7,7 @@ from supabase import create_client
 from dotenv import load_dotenv
 import os
 import time
+import json
 
 # Đọc các biến môi trường từ file .env
 load_dotenv()
@@ -121,7 +122,6 @@ def llm_note_action():
         f"TASK: {st.session_state.new_note_content}\n"
         f"Generate a note based on this info I provided."
     )
-    
     new_note_content = st.session_state.llm.run(prompt, GEMINI_KEY) 
     if new_note_content:
         try:
@@ -138,7 +138,48 @@ def llm_note_action():
     else:
         st.warning("Vui lòng nhập nội dung ghi chú.")
         
-        
+def llm_extract_flashcard_action():
+    
+    plain_text = st.session_state.get("plain_text", '').strip()     
+    if len(plain_text) < 10: 
+        st.error("Văn bản quá ngắn!")
+    else:
+        prompt = (
+            "You are a helpful assistant designed to create concise and informative for Japanese language flashcards.\n"
+            "For each flashcard, you will receive a word in Japanese and its meaning in Vietnamese.\n"
+            "Use this JSON schema:\n"
+            "Flashcard = {'word': str, 'meaning': str, 'example': str}\n"
+            "Return: list[Flashcard]\n",
+            "Generate 1 - 3 flashcard.\n",
+            f"\n\nTEXT: {plain_text}"
+        )
+        new_flashcards = st.session_state.llm.run_json(prompt, GEMINI_KEY)
+        st.session_state['extracted_flashcards'] = json.loads(new_flashcards)
+
+# Hàm lưu các flashcard đã chọn vào Supabase
+def save_extracted_flashcards():
+    selected_flashcards = [flashcard for flashcard in st.session_state['extracted_flashcards'] if st.session_state.get(f"select_{flashcard['word']}", False)]
+    for flashcard in selected_flashcards:
+        word = flashcard['word']
+        meaning = flashcard['meaning']
+        example = flashcard.get('example', '')
+
+        try:
+            # Lưu từng flashcard vào Supabase
+            supabase.table('flashcards').insert({
+                "word": word,
+                "meaning": meaning,
+                "example": example,
+                "gold_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }).execute()
+            st.success(f"Flashcard '{word}' đã được lưu.")
+        except Exception as e:
+            st.error(f"Lỗi khi lưu flashcard '{word}' vào Supabase: {e}")
+
+    # Cập nhật lại danh sách flashcards sau khi lưu
+    st.session_state.flashcards = load_flashcards()
+    st.session_state['extracted_flashcards'] = []  # Xóa flashcards sau khi lưu xong
+
 # Hàm lưu ghi chú mới vào bảng notes và session state
 def save_note_action():
     flashcard_id = st.session_state.current_card_id
@@ -206,7 +247,7 @@ def add_flashcard():
             st.session_state.new_word = ""
             st.session_state.new_meaning = ""
             st.session_state.new_example = ""
-            # Cập nhật danh sách flashcards
+            # Cập nhật danh sách flashcards ngay sau khi thêm
             st.session_state.flashcards = load_flashcards()
         except Exception as e:
             st.error(f"Lỗi khi thêm flashcard vào Supabase: {e}")
@@ -234,6 +275,8 @@ def get_priority_icon(gold_time):
         return "🔴"
     elif days_diff <= 1:
         return "🟠"
+    elif days_diff <= 2:
+        return "🔵"
     else:
         return "🟢"
 
@@ -251,6 +294,8 @@ if flashcards:
         st.session_state.current_page = "flashcard_view"  # Trang hiện tại
     if "llm" not in st.session_state:
         st.session_state.llm = GeminiFlask()
+    if "extracted_flashcards" not in st.session_state:
+        st.session_state.extracted_flashcards = []
         
     # Tải mô hình SARIMAX từ file
     model = load_sarimax_model()
@@ -413,11 +458,11 @@ if flashcards:
             col1, col2, col3 = st.columns(3)
             if not st.session_state.flipped:  # Chỉ hiển thị nút Flip nếu thẻ chưa lật
                 with col1:
-                    st.button("⬅️ Back", on_click=prev_card, use_container_width=True)
+                    st.button("⬅️ Quay lại", on_click=prev_card, use_container_width=True)
                 with col2:
-                    st.button("🔥 Flip", on_click=lambda: st.session_state.update(show_back=not st.session_state.show_back, flipped=True), use_container_width=True)
+                    st.button("🔥", on_click=lambda: st.session_state.update(show_back=not st.session_state.show_back, flipped=True), use_container_width=True)
                 with col3:
-                    st.button("➡️ Next", on_click=next_card, use_container_width=True)
+                    st.button("➡️ Tiếp tục", on_click=next_card, use_container_width=True)
 
         # Thêm nút ở góc trái bên dưới màn hình
         st.markdown(
@@ -443,6 +488,25 @@ if flashcards:
             st.text_input("Ví dụ:", key='new_example')
             st.button("Thêm Flashcard", on_click=add_flashcard)
 
+        # Giao diện thêm Flashcard bằng AI
+        with st.expander("➕ Thêm Flashcard với AI", expanded=True):
+            plain_text = st.text_area("Văn bản:", key='plain_text')
+            if st.button("Trích xuất"):
+                llm_extract_flashcard_action()
+                
+            # Hiển thị danh sách các flashcard đã trích xuất nếu có
+            extracted_flashcards = st.session_state.get('extracted_flashcards', [])
+            if extracted_flashcards:
+                st.write(extracted_flashcards)
+                st.write("Chọn các flashcard bạn muốn lưu:")
+                for flashcard in extracted_flashcards:
+                    st.checkbox(f"{flashcard['word']} - {flashcard['meaning']} - {flashcard['example']}", key=f"select_{flashcard['word']}")
+                    
+                # Nút lưu các flashcard đã chọn
+                if st.button("Lưu các flashcard đã chọn", on_click=save_extracted_flashcards):
+                    st.session_state['extracted_flashcards'] = []  # Xóa flashcards sau khi lưu xong
+                    plain_text = ""
+                    
         # Hiển thị danh sách các flashcard
         for idx, card in enumerate(st.session_state.flashcards):
             icon = get_priority_icon(card['gold_time'])

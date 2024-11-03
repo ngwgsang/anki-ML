@@ -41,3 +41,18 @@ class GeminiFlask:
         )
         response = model.generate_content(prompt, safety_settings=self.safe_settings)
         return response.text
+    
+    def run_json(self, prompt, key):
+        genai.configure(api_key=key)
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            generation_config={
+                "temperature": 1,
+                "top_p": 0.75,
+                "top_k": 1,
+                "max_output_tokens": 512,
+                "response_mime_type": "application/json", 
+            },
+        )
+        response = model.generate_content(prompt, safety_settings=self.safe_settings)
+        return response.text
