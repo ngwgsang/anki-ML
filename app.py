@@ -141,6 +141,7 @@ def llm_note_action():
 def llm_extract_flashcard_action():
     
     plain_text = st.session_state.get("plain_text", '').strip()     
+    level = st.session_state.get("level", '').strip()     
     if len(plain_text) < 10: 
         st.error("Văn bản quá ngắn!")
     else:
@@ -150,8 +151,8 @@ def llm_extract_flashcard_action():
             "Use this JSON schema:\n"
             "Flashcard = {'word': str, 'meaning': str, 'example': str}\n"
             "Return: list[Flashcard]\n",
-            "Generate 1 - 3 flashcard.\n",
-            f"\n\nTEXT: {plain_text}"
+            "Generate 1 - 5 flashcard at level {}.\n",
+            f"\n\nTEXT: {level}"
         )
         new_flashcards = st.session_state.llm.run_json(prompt, GEMINI_KEY)
         st.session_state['extracted_flashcards'] = json.loads(new_flashcards)
@@ -172,7 +173,7 @@ def save_extracted_flashcards():
                 "example": example,
                 "gold_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }).execute()
-            st.success(f"Flashcard '{word}' đã được lưu.")
+            st.toast(f"Flashcard '{word}' đã được thêm.", icon='🎉')
         except Exception as e:
             st.error(f"Lỗi khi lưu flashcard '{word}' vào Supabase: {e}")
 
@@ -242,7 +243,7 @@ def add_flashcard():
                 "example": example,
                 "gold_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }).execute()
-            st.success("Flashcard đã được thêm.")
+            st.toast(f"Flashcard '{word}' đã được thêm.", icon='🎉')
             # Xóa nội dung nhập
             st.session_state.new_word = ""
             st.session_state.new_meaning = ""
@@ -491,6 +492,19 @@ if flashcards:
         # Giao diện thêm Flashcard bằng AI
         with st.expander("➕ Thêm Flashcard với AI", expanded=True):
             plain_text = st.text_area("Văn bản:", key='plain_text')
+            level = st.select_slider(
+                "Chọn cấp độ",
+                options=[
+                    "N5",
+                    "N4",
+                    "N3",
+                    "N2",
+                    "N1",
+                ],
+                value="N2",
+                key="level"
+            )
+
             if st.button("Trích xuất"):
                 llm_extract_flashcard_action()
                 
