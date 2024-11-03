@@ -4,7 +4,7 @@ from datetime import datetime
 
 def get_all_data_from_sheet(uid, gid = 0):
     # Đường dẫn đến tệp JSON khóa xác thực
-    json_keyfile = 'client.json'
+    json_keyfile = 'anki-ml.json'
 
     # Phạm vi (scope) của ứng dụng
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
