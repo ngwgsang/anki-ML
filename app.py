@@ -416,7 +416,6 @@ if flashcards:
         except Exception as e:
             st.error(f"Lỗi khi cập nhật dữ liệu trong Supabase: {e}")
 
-    # Hàm để xử lý phản hồi của người dùng
     def update_gold_time_based_on_feedback(feedback_value):
         card = st.session_state.flashcards[st.session_state.index]
         last_timestamp = card['gold_time']
@@ -460,7 +459,18 @@ if flashcards:
         except Exception as e:
             st.error(f"Lỗi khi cập nhật tiến độ học: {e}")
 
+        # Update selection counter in session state
+        if "feedback_counter" not in st.session_state:
+            st.session_state.feedback_counter = 0
+        st.session_state.feedback_counter += 1
+
+        # Reload flashcards every 5 selections
+        if st.session_state.feedback_counter % 5 == 0:
+            st.session_state.flashcards = load_flashcards()
+            st.session_state.feedback_counter = 0  # Reset the counter
+
         next_card()  # Move to the next card after feedback
+
 
     # Hàm để lấy thẻ tiếp theo
     def next_card():
