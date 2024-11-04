@@ -90,6 +90,29 @@ def predict_next_gold_time(model, last_timestamp, current_point):
     
     return last_timestamp + timedelta(days=next_gap_days)
 
+# Hàm chuyển đến trang thống kê
+def go_to_statistics_page():
+    st.session_state.current_page = "statistics"
+
+# Hàm tải tất cả các ghi chú từ Supabase
+def load_all_notes():
+    try:
+        data = supabase.table('notes').select('*').execute()
+        notes = data.data if data.data else []
+        return notes
+    except Exception as e:
+        st.error(f"Lỗi khi lấy dữ liệu ghi chú từ Supabase: {e}")
+        return []
+
+def load_study_progress():
+    try:
+        response = supabase.table('study_progress').select('*').order('date').execute()
+        study_progress = response.data if response.data else []
+        return pd.DataFrame(study_progress)
+    except Exception as e:
+        st.error(f"Error fetching study progress data: {e}")
+        return pd.DataFrame()
+
 # Hàm lấy ghi chú của flashcard từ bảng notes và lưu vào session state
 def fetch_notes(flashcard_id):
     try:
@@ -109,18 +132,33 @@ def stream_data(text):
 def llm_note_action():
     flashcard_id = st.session_state.current_card_id
     card = st.session_state.flashcards[st.session_state.index]
+    # prompt = (
+    #     "You are a helpful assistant designed to create concise and informative notes for language flashcards.\n"
+    #     "For each flashcard, you will receive a word and its meaning.\n"
+    #     "Your task is to generate a brief note that helps the user remember the word and how to use it in context.\n"
+    #     "Focus on practical usage and examples when possible.\n"
+    #     "Make sure your notes are clear and easy to understand.\n"
+    #     "CURRENT FLASHCARD INFO\n"
+    #     f"WORD: {card['word']}\n"
+    #     f"MEANING: {card['meaning']}\n"
+    #     f"EXAMPLE: {card['example']}\n"
+    #     f"TASK: {st.session_state.new_note_content}\n"
+    #     f"Generate a note based on this info I provided, language must be Vietnamese"
+    # )
     prompt = (
-        "You are a helpful assistant designed to create concise and informative notes for language flashcards.\n"
-        "For each flashcard, you will receive a word and its meaning.\n"
-        "Your task is to generate a brief note that helps the user remember the word and how to use it in context.\n"
-        "Focus on practical usage and examples when possible.\n"
-        "Make sure your notes are clear and easy to understand.\n"
-        "CURRENT FLASHCARD INFO\n"
-        f"WORD: {card['word']}\n"
-        f"MEANING: {card['meaning']}\n"
-        f"EXAMPLE: {card['example']}\n"
-        f"TASK: {st.session_state.new_note_content}\n"
-        f"Generate a note based on this info I provided."
+        "Bạn là một trợ lý hữu ích, được thiết kế để tạo các ghi chú ngắn gọn và dễ hiểu cho flashcard học ngôn ngữ.\n"
+        "Với mỗi flashcard, bạn sẽ nhận được một từ và nghĩa của từ đó.\n"
+        "Nhiệm vụ của bạn là tạo một ghi chú ngắn giúp người dùng ghi nhớ từ và cách sử dụng từ đó trong ngữ cảnh thực tế.\n"
+        "Tập trung vào các ví dụ sử dụng từ trong thực tế để người học dễ dàng áp dụng.\n"
+        "Đảm bảo rằng các ghi chú của bạn rõ ràng, dễ hiểu, và viết bằng tiếng Việt.\n\n"
+        "Đối với cách đọc thì hãy dùng hiragana để thể hiện, không được sử dụng romanji hay Tiếng Việt.\n\n"
+        "### THÔNG TIN HIỆN TẠI CỦA FLASHCARD\n"
+        f"- **Từ:** {card['word']}\n"
+        f"- **Nghĩa:** {card['meaning']}\n"
+        f"- **Ví dụ:** {card['example']}\n\n"
+        "### NHIỆM VỤ\n"
+        f"- **Yêu cầu:** {st.session_state.new_note_content}\n"
+        "Hãy tạo ghi chú dựa trên thông tin này, và trình bày dưới dạng markdown bằng tiếng Việt."
     )
     new_note_content = st.session_state.llm.run(prompt, GEMINI_KEY) 
     if new_note_content:
@@ -148,6 +186,17 @@ def llm_extract_flashcard_action():
         prompt = (
             "You are a helpful assistant designed to create concise and informative for Japanese language flashcards.\n"
             "For each flashcard, you will receive a word in Japanese and its meaning in Vietnamese.\n"
+            "The flashcards are categorized by JLPT levels:\n\n"
+            "N1: Advanced level, includes complex vocabulary often used in professional or academic contexts.\n"
+            "Example words: 規範 (quy phạm), 資本 (tư bản), 政治 (chính trị)\n\n"
+            "N2: Upper-intermediate level, with vocabulary frequently used in business or media.\n"
+            "Example words: 責任 (trách nhiệm), 紛争 (xung đột), 貿易 (thương mại)\n\n"
+            "N3: Intermediate level, covering vocabulary needed for daily life and workplace interactions.\n"
+            "Example words: 進歩 (tiến bộ), 現状 (hiện trạng), 工業 (công nghiệp)\n\n"
+            "N4: Basic level, with words for everyday conversation and simple reading materials.\n"
+            "Example words: 便利 (tiện lợi), 親切 (thân thiện), 急ぐ (vội vã)\n\n"
+            "N5: Beginner level, covering fundamental vocabulary for simple communication.\n"
+            "Example words: 学校 (trường học), 友達 (bạn bè), 食べる (ăn)\n\n"
             "Use this JSON schema:\n"
             "Flashcard = {'word': str, 'meaning': str, 'example': str}\n"
             "Return: list[Flashcard]\n",
@@ -225,6 +274,25 @@ def save_edit_note_action(note_id):
     else:
         st.warning("Tiêu đề và nội dung ghi chú không được để trống.")
 
+def save_edit_flashcard_action(card_id):
+    updated_word = st.session_state.get(f"edit_word_{card_id}", "").strip()
+    updated_meaning = st.session_state.get(f"edit_meaning_{card_id}", "").strip()
+    updated_example = st.session_state.get(f"edit_example_{card_id}", "").strip()
+    if updated_word and updated_meaning and updated_example:
+        try:
+            supabase.table('flashcards').update({
+                "word": updated_word,
+                "meaning": updated_meaning,
+                "example": updated_example
+            }).eq('id', card_id).execute()
+            st.session_state.flashcard_edit_mode[card_id] = False  # Thoát chế độ chỉnh sửa
+            st.session_state.flashcards = load_flashcards()  # Làm mới danh sách flashcards
+            st.toast(f"Flashcard '{updated_word}' đã được cập nhật.", icon='✅')
+        except Exception as e:
+            st.error(f"Lỗi khi cập nhật flashcard trong Supabase: {e}")
+    else:
+        st.warning("Từ vựng, nghĩa và ví dụ không được để trống.")
+
 # Hàm chuyển đến trang flashcard collection
 def go_to_flashcard_collection():
     st.session_state.current_page = "flashcard_collection"
@@ -258,13 +326,18 @@ def add_flashcard():
 # Hàm xóa flashcard
 def delete_flashcard(card_id):
     try:
+        # Xóa flashcard từ bảng 'flashcards'
         supabase.table('flashcards').delete().eq('id', card_id).execute()
-        st.success("Flashcard đã được xóa.")
+        
+        # Xóa các ghi chú liên quan từ bảng 'notes'
+        supabase.table('notes').delete().eq('flashcard_id', card_id).execute()
+        
+        st.toast("Xóa thành công.", icon='🎉')
         # Cập nhật danh sách flashcards
         st.session_state.flashcards = load_flashcards()
     except Exception as e:
-        st.error(f"Lỗi khi xóa flashcard từ Supabase: {e}")
-
+        st.error(f"Lỗi khi xóa flashcard hoặc ghi chú từ Supabase: {e}")
+        
 # Hàm để lấy biểu tượng ưu tiên dựa trên gold_time
 def get_priority_icon(gold_time):
     now = pd.Timestamp.now()
@@ -297,7 +370,8 @@ if flashcards:
         st.session_state.llm = GeminiFlask()
     if "extracted_flashcards" not in st.session_state:
         st.session_state.extracted_flashcards = []
-        
+    if "flashcard_edit_mode" not in st.session_state:
+        st.session_state.flashcard_edit_mode = {}
     # Tải mô hình SARIMAX từ file
     model = load_sarimax_model()
 
@@ -317,6 +391,7 @@ if flashcards:
         if pd.isna(last_timestamp):
             last_timestamp = pd.Timestamp.now()
 
+        # Update gold time based on feedback
         if model:
             gold_time = predict_next_gold_time(model, last_timestamp, feedback_value)
         else:
@@ -325,7 +400,35 @@ if flashcards:
         card_id = card["id"]
         update_timestamp_by_id(card_id, gold_time)
 
-        next_card()
+        # Update study progress table in Supabase
+        try:
+            # Get the current date in 'YYYY-MM-DD' format
+            today_str = datetime.now().strftime('%Y-%m-%d')
+
+            # Check if there’s already an entry for today
+            response = supabase.table('study_progress').select('*').eq('date', today_str).execute()
+            if response.data:
+                # Update the existing row for today
+                if feedback_value == 1:
+                    supabase.table('study_progress').update({"good_count": response.data[0]["good_count"] + 1}).eq('date', today_str).execute()
+                elif feedback_value == 0:
+                    supabase.table('study_progress').update({"normal_count": response.data[0]["normal_count"] + 1}).eq('date', today_str).execute()
+                elif feedback_value == -1:
+                    supabase.table('study_progress').update({"bad_count": response.data[0]["bad_count"] + 1}).eq('date', today_str).execute()
+            else:
+                # Insert a new row if today's entry does not exist
+                new_entry = {
+                    "date": today_str,
+                    "good_count": 1 if feedback_value == 1 else 0,
+                    "normal_count": 1 if feedback_value == 0 else 0,
+                    "bad_count": 1 if feedback_value == -1 else 0
+                }
+                supabase.table('study_progress').insert(new_entry).execute()
+        except Exception as e:
+            st.error(f"Lỗi khi cập nhật tiến độ học: {e}")
+
+        next_card()  # Move to the next card after feedback
+
 
     # Hàm để lấy thẻ tiếp theo
     def next_card():
@@ -478,9 +581,16 @@ if flashcards:
             """, unsafe_allow_html=True
         )
         with st.container():
-            st.button("📚 Bộ sưu tập", on_click=go_to_flashcard_collection, key="collection_button", help="Xem bộ sưu tập flashcard", args=None, kwargs=None, type="primary", use_container_width=False, disabled=False)
+            col1, col2 = st.columns(2)
+            with col1:
+                st.button("📚 Bộ sưu tập", on_click=go_to_flashcard_collection, key="collection_button", help="Xem bộ sưu tập flashcard", type="primary", use_container_width=True)
+            with col2:
+                st.button("📊 Thống kê", on_click=go_to_statistics_page, key="statistics_button", help="Xem thống kê", type="primary", use_container_width=True)
+
+            
     elif st.session_state.current_page == "flashcard_collection":
-        st.title("Bộ sưu tập Flashcard")
+        st.button("🔙 Quay lại", on_click=lambda: st.session_state.update(current_page="flashcard_view"), key="back_to_view")
+        st.title("Bộ sưu tập thẻ")
 
         # Nút thêm flashcard
         with st.expander("➕ Thêm Flashcard Mới"):
@@ -490,7 +600,7 @@ if flashcards:
             st.button("Thêm Flashcard", on_click=add_flashcard)
 
         # Giao diện thêm Flashcard bằng AI
-        with st.expander("➕ Thêm Flashcard với AI", expanded=True):
+        with st.expander("➕ Thêm Flashcard với AI"):
             plain_text = st.text_area("Văn bản:", key='plain_text')
             level = st.select_slider(
                 "Chọn cấp độ",
@@ -524,11 +634,135 @@ if flashcards:
         # Hiển thị danh sách các flashcard
         for idx, card in enumerate(st.session_state.flashcards):
             icon = get_priority_icon(card['gold_time'])
+            is_editable = st.session_state.flashcard_edit_mode.get(card['id'], False)
             with st.expander(f"{icon} {card['word']} - {card['meaning']}", expanded=False):
-                st.write(f"**Ví dụ:** {card['example']}")
-                gold_time_str = card['gold_time'].strftime('%Y-%m-%d %H:%M:%S') if pd.notna(card['gold_time']) else "N/A"
-                st.write(f"**Gold time:** {gold_time_str}")
-                st.button("🗑️ Xóa Flashcard", key=f"delete_card_{card['id']}", on_click=lambda card_id=card['id']: delete_flashcard(card_id))
+                if is_editable:
+                    # Chế độ chỉnh sửa
+                    st.text_input("Từ vựng:", value=card['word'], key=f"edit_word_{card['id']}")
+                    st.text_input("Nghĩa:", value=card['meaning'], key=f"edit_meaning_{card['id']}")
+                    st.text_area("Ví dụ:", value=card['example'], key=f"edit_example_{card['id']}")
+                    col_save, col_cancel = st.columns([1, 1])
+                    with col_save:
+                        st.button("Lưu", key=f"save_card_{card['id']}", on_click=lambda card_id=card['id']: save_edit_flashcard_action(card_id), use_container_width=True)
+                    with col_cancel:
+                        st.button("Hủy", key=f"cancel_card_{card['id']}", on_click=lambda card_id=card['id']: st.session_state.flashcard_edit_mode.update({card_id: False}), use_container_width=True)
+                else:
+                    # Hiển thị thông tin flashcard
+                    st.write(f"**Ví dụ:** {card['example']}")
+                    gold_time_str = card['gold_time'].strftime('%Y-%m-%d %H:%M:%S') if pd.notna(card['gold_time']) else "N/A"
+                    st.write(f"**Gold time:** {gold_time_str}")
+                    col_edit, col_delete = st.columns([1, 1])
+                    with col_edit:
+                        st.button("Chỉnh sửa", key=f"edit_card_{card['id']}", on_click=lambda card_id=card['id']: st.session_state.flashcard_edit_mode.update({card_id: True}), use_container_width=True)
+                    with col_delete:
+                        st.button("🗑️ Xóa Flashcard", key=f"delete_card_{card['id']}", on_click=lambda card_id=card['id']: delete_flashcard(card_id), use_container_width=True)
 
         # Nút quay lại trang flashcard_view
         st.button("🔙 Quay lại", on_click=lambda: st.session_state.update(current_page="flashcard_view"), key="back_to_view")
+    
+    elif st.session_state.current_page == "statistics":
+        st.button("🔙 Quay lại", on_click=lambda: st.session_state.update(current_page="flashcard_view"), key="back_to_view")
+        st.title("📊 Thống kê")
+        # Create two columns for the cards
+        col1, col2 = st.columns(2)
+
+        # Card 1: Total Flashcards
+        total_flashcards = len(st.session_state.flashcards)
+        with col1:
+            st.button(
+                f"{total_flashcards} thẻ",
+                type="primary",
+                use_container_width=True,
+                disabled=True,
+            )
+
+        # Card 2: Total Notes
+        all_notes = load_all_notes()
+        total_notes = len(all_notes)
+        with col2:
+            st.button(
+                f"{total_notes} ghi chú",
+                type="primary",
+                use_container_width=True,
+                disabled=True,
+            )
+
+        
+        st.divider()
+        # Load study progress data
+        study_progress_df = load_study_progress()
+                
+        if not study_progress_df.empty:
+            st.markdown("### Tiến Độ Học Tập")
+
+            # Convert 'date' column to datetime and set it as the index
+            study_progress_df['date'] = pd.to_datetime(study_progress_df['date'])
+            study_progress_df = study_progress_df.set_index('date')
+            
+            # Drop the 'id' column if it exists
+            study_progress_df = study_progress_df.drop(columns=['id'], errors='ignore')
+
+            # Rename columns to desired labels
+            study_progress_df = study_progress_df.rename(columns={
+                'good_count': 'Quá dễ 😎',
+                'normal_count': 'Hông chắc 🤔',
+                'bad_count': 'Cái qq j z😱'
+            })
+
+            # Plot the renamed DataFrame with Streamlit's line chart
+            st.line_chart(study_progress_df, color=["#73EC8B", "#FF6600", "#FF4545"])
+
+
+        st.divider()
+        # 1. Biểu đồ phân phối các flashcard theo trạng thái Gold Time
+        st.markdown("### Phân phối thẻ")
+
+        # Define a dictionary to count each status
+        status_counts = {'🔴': 0, '🟠': 0, '🔵': 0, '🟢': 0}
+
+        # Calculate the status counts by using get_priority_icon function
+        for card in st.session_state.flashcards:
+            icon = get_priority_icon(card['gold_time'])
+            status_counts[icon] += 1
+
+        # Map icons to meaningful labels for the chart
+        status_labels = {
+            '🔴': 'Quá hạn',
+            '🟠': 'Sắp đến hạn',
+            '🔵': 'Còn 1-2 ngày',
+            '🟢': 'Còn thời gian'
+        }
+
+        # Convert counts to a DataFrame for visualization
+        status_df = pd.DataFrame({
+            'Trạng thái': [status_labels[icon] for icon in status_counts],
+            'Số lượng': list(status_counts.values())
+        }).set_index('Trạng thái')
+
+        # Display the bar chart
+        st.bar_chart(status_df)
+
+        # 2. Biểu đồ số lượng ghi chú trên mỗi flashcard
+        st.divider()
+        st.markdown("### Số lượng Ghi chú")
+        note_counts = {}
+        for note in all_notes:
+            flashcard_id = note['flashcard_id']
+            note_counts[flashcard_id] = note_counts.get(flashcard_id, 0) + 1
+
+        flashcard_ids = [card['id'] for card in st.session_state.flashcards]
+        counts = [note_counts.get(flashcard_id, 0) for flashcard_id in flashcard_ids]
+        words = [card['word'] for card in st.session_state.flashcards]
+
+        # Tạo DataFrame cho biểu đồ
+        note_counts_df = pd.DataFrame({
+            'Flashcard': words,
+            'Số lượng Ghi chú': counts
+        })
+        note_counts_df.set_index('Flashcard', inplace=True)
+
+        # Hiển thị biểu đồ cột
+        st.bar_chart(note_counts_df.head(20), horizontal=True)
+
+        # Nút quay lại trang flashcard_view
+        st.button("🔙 Quay lại", on_click=lambda: st.session_state.update(current_page="flashcard_view"), key="back_to_view_statistics")
