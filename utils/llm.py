@@ -5,7 +5,7 @@ class GeminiFlask:
     def __init__(self):
         self.generation_config = {
             "temperature": 1,
-            "top_p": 0.75,
+            "top_p": 0.9,
             "top_k": 1,
             "max_output_tokens": 256,
             "response_mime_type": "text/plain",
@@ -48,7 +48,7 @@ class GeminiFlask:
             model_name="gemini-1.5-flash",
             generation_config={
                 "temperature": 1,
-                "top_p": 0.75,
+                "top_p": 0.9,
                 "top_k": 1,
                 "max_output_tokens": 512,
                 "response_mime_type": "application/json", 

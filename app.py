@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 import os
 import time
 import json
+import re
+
 
 # Đọc các biến môi trường từ file .env
 load_dotenv()
@@ -90,6 +92,42 @@ def predict_next_gold_time(model, last_timestamp, current_point):
     
     return last_timestamp + timedelta(days=next_gap_days)
 
+# Function to convert kanji with furigana (e.g., 漢字(かんじ)) to HTML ruby tags
+def add_furigana(text):
+    # Pattern to match kanji followed by furigana in either standard parentheses () or full-width parentheses （）
+    furigana_pattern = r'([一-龯])\((.*?)\)|([一-龯])（(.*?)）'
+    
+    # Substitute kanji-furigana pairs with ruby tags
+    def replace_match(match):
+        # If the match uses standard parentheses
+        if match.group(1) and match.group(2):
+            kanji = match.group(1)
+            furigana = match.group(2)
+        # If the match uses full-width parentheses
+        elif match.group(3) and match.group(4):
+            kanji = match.group(3)
+            furigana = match.group(4)
+        else:
+            return match.group(0)  # If no match, return as is
+        
+        return f"<ruby>{kanji}<rt>{furigana}</rt></ruby>"
+
+    # Use the replace function for all matches in the text
+    return re.sub(furigana_pattern, replace_match, text)
+
+def add_highlight(text, highlight_word=None):
+    
+    bold_pattern = r'\*\*(.*?)\*\*'
+    text = re.sub(bold_pattern, r'<b>\1</b>', text)
+    
+    if highlight_word:
+        # Escape `highlight_word` for regex in case it contains special characters
+        escaped_word = re.escape(highlight_word)
+        # Only highlight if not already in bold
+        text = re.sub(fr'(?<!<b>)({escaped_word})(?!<\/b>)', r'<b>\1</b>', text)
+    
+    return text
+
 # Hàm chuyển đến trang thống kê
 def go_to_statistics_page():
     st.session_state.current_page = "statistics"
@@ -158,7 +196,7 @@ def llm_note_action():
         f"- **Ví dụ:** {card['example']}\n\n"
         "### NHIỆM VỤ\n"
         f"- **Yêu cầu:** {st.session_state.new_note_content}\n"
-        "Hãy tạo ghi chú dựa trên thông tin này, và trình bày dưới dạng markdown bằng tiếng Việt."
+        "Hãy tạo ghi chú ngắn gọn (không được lặp lại thông tin trên), và trình bày dưới dạng markdown bằng tiếng Việt."
     )
     new_note_content = st.session_state.llm.run(prompt, GEMINI_KEY) 
     if new_note_content:
@@ -185,23 +223,18 @@ def llm_extract_flashcard_action():
     else:
         prompt = (
             "You are a helpful assistant designed to create concise and informative for Japanese language flashcards.\n"
-            "For each flashcard, you will receive a word in Japanese and its meaning in Vietnamese.\n"
-            "The flashcards are categorized by JLPT levels:\n\n"
             "N1: Advanced level, includes complex vocabulary often used in professional or academic contexts.\n"
-            "Example words: 規範 (quy phạm), 資本 (tư bản), 政治 (chính trị)\n\n"
             "N2: Upper-intermediate level, with vocabulary frequently used in business or media.\n"
-            "Example words: 責任 (trách nhiệm), 紛争 (xung đột), 貿易 (thương mại)\n\n"
             "N3: Intermediate level, covering vocabulary needed for daily life and workplace interactions.\n"
-            "Example words: 進歩 (tiến bộ), 現状 (hiện trạng), 工業 (công nghiệp)\n\n"
             "N4: Basic level, with words for everyday conversation and simple reading materials.\n"
-            "Example words: 便利 (tiện lợi), 親切 (thân thiện), 急ぐ (vội vã)\n\n"
             "N5: Beginner level, covering fundamental vocabulary for simple communication.\n"
-            "Example words: 学校 (trường học), 友達 (bạn bè), 食べる (ăn)\n\n"
+
             "Use this JSON schema:\n"
             "Flashcard = {'word': str, 'meaning': str, 'example': str}\n"
             "Return: list[Flashcard]\n",
-            "Generate 1 - 5 flashcard at level {}.\n",
-            f"\n\nTEXT: {level}"
+            f"Generate some flashcard at level {level} from the TEXT i provided\n",
+            f"\n\nTEXT: {plain_text}"
+            "For each flashcard, you will receive a word in Japanese and its meaning in Vietnamese.\n"
         )
         new_flashcards = st.session_state.llm.run_json(prompt, GEMINI_KEY)
         st.session_state['extracted_flashcards'] = json.loads(new_flashcards)
@@ -429,7 +462,6 @@ if flashcards:
 
         next_card()  # Move to the next card after feedback
 
-
     # Hàm để lấy thẻ tiếp theo
     def next_card():
         st.session_state.index = (st.session_state.index + 1) % len(st.session_state.flashcards)
@@ -503,8 +535,8 @@ if flashcards:
 
         # Hiển thị mặt trước hoặc mặt sau của thẻ dựa vào trạng thái
         if st.session_state.show_back:
-            example_text = card['example'].replace('"', '<b>', 1).replace('"', '</b>', 1)
-            st.markdown(f"""<div class='flashcard-box'>{card['word']}<br>{card['meaning']}<br>{example_text}</div>""", unsafe_allow_html=True)
+            example_text = add_highlight(add_furigana(card['example']), card['word'])
+            st.markdown(f"""<div class='flashcard-box'>{add_furigana(card['word'])}<br>{card['meaning']}<br>{example_text}</div>""", unsafe_allow_html=True)
             
             # Hiển thị các lựa chọn phản hồi sau khi lật thẻ
             with st.container():
@@ -555,7 +587,7 @@ if flashcards:
                     st.button("Magic 🪄", on_click=llm_note_action, use_container_width=True)
         else:
             time_until_gold = calculate_time_until_gold(card['gold_time'])
-            st.markdown(f"<div class='flashcard-box'>{card['word']}<span class='gold_time'>Gold time: {time_until_gold}</span></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='flashcard-box'>{add_furigana(card['word'])}<span class='gold_time'>Gold time: {time_until_gold}</span></div>", unsafe_allow_html=True)
 
         # Hiển thị các nút điều hướng và nút lật thẻ
         with st.container():
@@ -658,7 +690,7 @@ if flashcards:
                         st.button("🗑️ Xóa Flashcard", key=f"delete_card_{card['id']}", on_click=lambda card_id=card['id']: delete_flashcard(card_id), use_container_width=True)
 
         # Nút quay lại trang flashcard_view
-        st.button("🔙 Quay lại", on_click=lambda: st.session_state.update(current_page="flashcard_view"), key="back_to_view")
+        st.button("🔙 Quay lại", on_click=lambda: st.session_state.update(current_page="flashcard_view"), key="back_to_view2")
     
     elif st.session_state.current_page == "statistics":
         st.button("🔙 Quay lại", on_click=lambda: st.session_state.update(current_page="flashcard_view"), key="back_to_view")
