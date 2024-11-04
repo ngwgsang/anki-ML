@@ -85,7 +85,9 @@ def predict_next_gold_time(model, last_timestamp, current_point):
     gold_point = current_point
     if current_point > -1:
         gold_point += days_difference
-
+    else:
+        gold_point -= round(days_difference / 3)
+        
     exog_forecast = pd.DataFrame({"point": [gold_point]})
     forecast = model.get_forecast(steps=1, exog=exog_forecast)
     next_gap_days = forecast.predicted_mean.iloc[0]
@@ -425,6 +427,7 @@ if flashcards:
 
         # Update gold time based on feedback
         if model:
+            
             gold_time = predict_next_gold_time(model, last_timestamp, feedback_value)
         else:
             gold_time = last_timestamp + timedelta(days=2)
