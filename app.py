@@ -407,6 +407,9 @@ if flashcards:
         st.session_state.extracted_flashcards = []
     if "flashcard_edit_mode" not in st.session_state:
         st.session_state.flashcard_edit_mode = {}
+    if "feedback_list" not in st.session_state:
+        st.session_state.feedback_list = []
+
     # Tải mô hình SARIMAX từ file
     model = load_sarimax_model()
 
@@ -420,59 +423,109 @@ if flashcards:
 
     def update_gold_time_based_on_feedback(feedback_value):
         card = st.session_state.flashcards[st.session_state.index]
+        card_id = card["id"]
         last_timestamp = card['gold_time']
-        
+
         if pd.isna(last_timestamp):
             last_timestamp = pd.Timestamp.now()
 
-        # Update gold time based on feedback
+        # Tính toán gold_time dựa trên phản hồi
         if model:
-            
             gold_time = predict_next_gold_time(model, last_timestamp, feedback_value)
         else:
             gold_time = last_timestamp + timedelta(days=2)
 
-        card_id = card["id"]
-        update_timestamp_by_id(card_id, gold_time)
+        # Lưu phản hồi và gold_time vào session_state
+        st.session_state.feedback_list.append({
+            'card_id': card_id,
+            'gold_time': gold_time,
+            'feedback_value': feedback_value
+        })
 
-        # Update study progress table in Supabase
-        try:
-            # Get the current date in 'YYYY-MM-DD' format
-            today_str = datetime.now().strftime('%Y-%m-%d')
+        next_card()  # Chuyển đến thẻ tiếp theo sau khi phản hồi
 
-            # Check if there’s already an entry for today
-            response = supabase.table('study_progress').select('*').eq('date', today_str).execute()
-            if response.data:
-                # Update the existing row for today
+    def sync_data():
+        feedback_list = st.session_state.get('feedback_list', [])
+
+        if not feedback_list:
+            st.info("Không có dữ liệu mới để đồng bộ.")
+            return
+
+        # Use st.empty() to create a dynamic placeholder for the expander
+        expander_placeholder = st.empty()
+
+        with expander_placeholder.expander("Đang đồng bộ..."):
+            # Initialize the progress bar
+            progress_bar = st.progress(0)
+            total_feedback = len(feedback_list)
+            progress_step = 1 / (total_feedback + 1)  # +1 for study_progress update
+
+            # Label for showing current progress step
+            status_label = st.empty()
+
+            # Prepare data to update the study_progress table
+            study_progress = {'good_count': 0, 'normal_count': 0, 'bad_count': 0}
+
+            # Sync gold_time for each card and accumulate study progress
+            for idx, feedback in enumerate(feedback_list):
+                card_id = feedback['card_id']
+                gold_time = feedback['gold_time']
+                feedback_value = feedback['feedback_value']
+
+                # Update gold_time in the database
+                try:
+                    status_label.text(f"Đang cập nhật gold_time cho thẻ ID {card_id}...")
+                    time.sleep(0.5)  # Simulate update delay
+                    # Replace this line with your actual Supabase update code
+                    # supabase.table('flashcards').update({'gold_time': gold_time.strftime('%Y-%m-%d %H:%M:%S')}).eq('id', card_id).execute()
+                except Exception as e:
+                    st.error(f"Lỗi khi cập nhật gold_time cho flashcard ID {card_id}: {e}")
+
+                # Accumulate study progress
                 if feedback_value == 1:
-                    supabase.table('study_progress').update({"good_count": response.data[0]["good_count"] + 1}).eq('date', today_str).execute()
+                    study_progress['good_count'] += 1
                 elif feedback_value == 0:
-                    supabase.table('study_progress').update({"normal_count": response.data[0]["normal_count"] + 1}).eq('date', today_str).execute()
+                    study_progress['normal_count'] += 1
                 elif feedback_value == -1:
-                    supabase.table('study_progress').update({"bad_count": response.data[0]["bad_count"] + 1}).eq('date', today_str).execute()
-            else:
-                # Insert a new row if today's entry does not exist
-                new_entry = {
-                    "date": today_str,
-                    "good_count": 1 if feedback_value == 1 else 0,
-                    "normal_count": 1 if feedback_value == 0 else 0,
-                    "bad_count": 1 if feedback_value == -1 else 0
-                }
-                supabase.table('study_progress').insert(new_entry).execute()
-        except Exception as e:
-            st.error(f"Lỗi khi cập nhật tiến độ học: {e}")
+                    study_progress['bad_count'] += 1
 
-        # Update selection counter in session state
-        if "feedback_counter" not in st.session_state:
-            st.session_state.feedback_counter = 0
-        st.session_state.feedback_counter += 1
+                # Update the progress bar
+                progress_bar.progress(int((idx + 1) * progress_step * 100))
 
-        # Reload flashcards every 5 selections
-        if st.session_state.feedback_counter % 5 == 0:
-            st.session_state.flashcards = load_flashcards()
-            st.session_state.feedback_counter = 0  # Reset the counter
+            # Update the study_progress table
+            try:
+                status_label.text("Đang cập nhật tiến độ học...")
+                today_str = datetime.now().strftime('%Y-%m-%d')
+                time.sleep(0.5)  # Simulate update delay
+                # Replace this section with your Supabase update code
+                response = supabase.table('study_progress').select('*').eq('date', today_str).execute()
+                if response.data:
+                    existing_progress = response.data[0]
+                    supabase.table('study_progress').update({
+                        "good_count": existing_progress["good_count"] + study_progress['good_count'],
+                        "normal_count": existing_progress["normal_count"] + study_progress['normal_count'],
+                        "bad_count": existing_progress["bad_count"] + study_progress['bad_count']
+                    }).eq('date', today_str).execute()
+                else:
+                    new_entry = {
+                        "date": today_str,
+                        "good_count": study_progress['good_count'],
+                        "normal_count": study_progress['normal_count'],
+                        "bad_count": study_progress['bad_count']
+                    }
+                    supabase.table('study_progress').insert(new_entry).execute()
+            except Exception as e:
+                st.error(f"Lỗi khi cập nhật tiến độ học: {e}")
 
-        next_card()  # Move to the next card after feedback
+            # Final update for the progress bar
+            progress_bar.progress(100)
+            status_label.text("Hoàn tất đồng bộ.")
+
+        # Clear the feedback list after synchronization
+        st.session_state.feedback_list = []
+
+        # Reload flashcards to update changes
+        st.session_state.flashcards = load_flashcards()  # Uncomment to reload flashcards if needed
 
 
     # Hàm để lấy thẻ tiếp theo
@@ -626,11 +679,13 @@ if flashcards:
             """, unsafe_allow_html=True
         )
         with st.container():
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 st.button("📚 Bộ sưu tập", on_click=go_to_flashcard_collection, key="collection_button", help="Xem bộ sưu tập flashcard", type="primary", use_container_width=True)
             with col2:
                 st.button("📊 Thống kê", on_click=go_to_statistics_page, key="statistics_button", help="Xem thống kê", type="primary", use_container_width=True)
+            with col3:
+                st.button("🔄 Đồng bộ", on_click=sync_data, key="sync_button", help="Đồng bộ dữ liệu với cơ sở dữ liệu", type="primary", use_container_width=True)
 
             
     elif st.session_state.current_page == "flashcard_collection":
