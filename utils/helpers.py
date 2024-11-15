@@ -1,6 +1,10 @@
 import re
 import pandas as pd
 from datetime import datetime
+from dotenv import load_dotenv
+import os
+import streamlit as st
+
 
 def add_furigana(text):
     """
@@ -111,3 +115,14 @@ def stream_data(text, delay=0.02):
     for word in text.split(" "):
         yield word + " "
         time.sleep(delay)
+
+def load_environment_variables():
+    load_dotenv()
+    required_vars = ['SUPABASE_URL', 'SUPABASE_KEY', 'GEMINI_KEY']
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    if missing_vars:
+        st.error(f"Missing environment variables: {', '.join(missing_vars)}")
+    else:
+        st.session_state.SUPABASE_URL = os.getenv('SUPABASE_URL')
+        st.session_state.SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+        st.session_state.GEMINI_KEY = os.getenv('GEMINI_KEY')
