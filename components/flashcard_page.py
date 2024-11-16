@@ -8,14 +8,6 @@ from datetime import datetime, timedelta
 import pandas as pd
 import time
 
-# Set the page configuration
-# st.set_page_config(
-#     page_title="Anki-ML✨",
-#     page_icon="📚",
-#     layout="centered",
-#     initial_sidebar_state="collapsed",  # This collapses the sidebar by default
-# )
-
 # Cập nhật `gold_time` trong Supabase
 def update_timestamp_by_id(card_id, gold_time):
     try:
@@ -213,12 +205,6 @@ def render_flashcard_page():
                 new_note_content = st.button("Magic 🪄", on_click=st.session_state.llm.take_note_action, use_container_width=True)
                 if new_note_content:
                     try:
-                        # Lưu ghi chú với title và content
-                        # supabase.table('notes').insert({
-                        #     "flashcard_id": st.session_state.current_card_id,
-                        #     "title": st.session_state.new_note_title.strip(),
-                        #     "content": new_note_content
-                        # }).execute()
                         add_note(st.session_state.current_card_id, st.session_state.new_note_title.strip(), new_note_content)
                         st.session_state.new_note_title = ""
                         st.session_state.new_note_content = ""  # Xóa nội dung sau khi gửi

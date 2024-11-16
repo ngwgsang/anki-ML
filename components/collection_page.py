@@ -4,14 +4,6 @@ from utils.database import add_flashcard, load_flashcards, delete_flashcard, upd
 from utils.helpers import get_priority_icon
 from utils.navigate import go_to_flashcard_page
 
-# Set the page configuration
-# st.set_page_config(
-#     page_title="Anki-ML✨",
-#     page_icon="📚",
-#     layout="centered",
-#     initial_sidebar_state="collapsed",  # This collapses the sidebar by default
-# )
-
 def add_flashcard_action():
     if st.session_state["new_word"] and st.session_state["new_meaning"] and st.session_state["new_example"]:
         add_flashcard(st.session_state["new_word"], st.session_state["new_meaning"], st.session_state["new_example"])
@@ -52,7 +44,7 @@ def save_edit_flashcard_action(card_id):
             st.session_state.flashcard_edit_mode[card_id] = False  # Exit edit mode
             st.session_state.flashcards = load_flashcards()  # Reload flashcards
             st.toast(f"Flashcard '{updated_word}' đã được cập nhật.", icon='✅')
-            st.rerun()  # Rerun to refresh the page immediately
+            # st.rerun()  # Rerun to refresh the page immediately
         except Exception as e:
             st.error(f"Lỗi khi cập nhật flashcard trong Supabase: {e}")
     else:
@@ -62,21 +54,21 @@ def save_edit_flashcard_action(card_id):
 def delete_flashcard_action(card_id):
     delete_flashcard(card_id)
     st.session_state.flashcards = load_flashcards()  # Reload flashcards to update the list
-    st.rerun()  # Rerun to refresh the page immediately
+    # st.rerun()  # Rerun to refresh the page immediately
 
 
 def render_collection_page():
     
-    st.button("🔙 Quay lại", on_click=go_to_flashcard_page(), key="back_to_view")
+    st.button("🔙 Quay lại", on_click=go_to_flashcard_page, key="back_to_view")
     st.title("Bộ sưu tập thẻ")
 
     # Nút thêm flashcard
     with st.expander("➕ Thêm Flashcard Mới"):
         
         # Define input fields for the new flashcard
-        new_word = st.text_input("Từ vựng:", key="new_word")
-        new_meaning = st.text_input("Nghĩa:", key="meaning")
-        new_example = st.text_input("Ví dụ:", key="example")
+        st.text_input("Từ vựng:", key="new_word")
+        st.text_input("Nghĩa:", key="new_meaning")
+        st.text_input("Ví dụ:", key="new_example")
 
         # In app.py, inside the "Thêm Flashcard" button's on_click event
         st.button("Thêm Flashcard", on_click=add_flashcard_action)
@@ -143,4 +135,4 @@ def render_collection_page():
                     st.button("🗑️ Xóa Flashcard", key=f"delete_card_{card['id']}", on_click=lambda card_id=card['id']: delete_flashcard_action(card['id']), use_container_width=True)
                     
     # Nút quay lại trang flashcard_view
-    st.button("🔙 Quay lại", on_click=go_to_flashcard_page(), key="back_to_view2")
+    st.button("🔙 Quay lại", on_click=go_to_flashcard_page, key="back_to_view2")

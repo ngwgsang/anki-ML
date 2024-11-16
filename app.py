@@ -2,15 +2,17 @@ import streamlit as st
 from utils.helpers import load_environment_variables
 from utils.database import load_flashcards
 from utils.schedule import load_sarimax_model
-from pages import render_statistics_page, render_collection_page, render_flashcard_page, render_login_page
+from components import render_statistics_page, render_collection_page, render_flashcard_page, render_login_page
 from utils.llms import GeminiFlash
 
-st.set_page_config(
-    page_title="Anki-ML",
-    page_icon="✨",
-    layout="centered",
-    initial_sidebar_state="collapsed",
-)
+# st.set_page_config(
+#     page_title="Anki-ML",
+#     page_icon="✨",
+#     layout="centered",
+#     initial_sidebar_state="collapsed",
+# )
+
+# st.sidebar.balloons()
 
 load_environment_variables()
 

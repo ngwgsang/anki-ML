@@ -4,16 +4,8 @@ from utils.database import load_study_progress, load_flashcards, load_all_notes
 from utils.helpers import get_priority_icon
 from utils.navigate import go_to_flashcard_page
 
-# Set the page configuration
-# st.set_page_config(
-#     page_title="Anki-ML✨",
-#     page_icon="📚",
-#     layout="centered",
-#     initial_sidebar_state="collapsed",  # This collapses the sidebar by default
-# )
-
 def render_statistics_page():
-    st.button("🔙 Quay lại", on_click=go_to_flashcard_page(), key="back_to_view")
+    st.button("🔙 Quay lại", on_click=go_to_flashcard_page, key="back_to_view")
     st.title("📊 Thống kê")
     # Create two columns for the cards
     col1, col2 = st.columns(2)
@@ -118,7 +110,7 @@ def render_statistics_page():
     st.bar_chart(note_counts_df.head(20), horizontal=True)
 
     # Nút quay lại trang flashcard_view
-    st.button("🔙 Quay lại", on_click=go_to_flashcard_page(), key="back_to_view_statistics")
+    st.button("🔙 Quay lại", on_click=go_to_flashcard_page, key="back_to_view_statistics")
 
 
 if __name__ == "__main__":

@@ -12,8 +12,8 @@ def login_action():
             st.session_state.user_id = user_id  # Save user ID to session state
             st.session_state.is_admin = is_admin
             st.session_state.current_page = "flashcard"  # Set the current page to flashcard
-            # st.success("Logged in successfully!")
             st.write(st.session_state.current_page)
+            st.balloons()
         else:
             st.error("Incorrect username or password. Please try again.")
     else:
@@ -21,6 +21,6 @@ def login_action():
 
 def render_login_page():
     st.title("Login")
-    st.text_input("Username", key="username")
-    st.text_input("Password", type="password", key="password")
+    st.text_input("Username", key="username", value="admin")
+    st.text_input("Password", type="password", key="password", value="sangdeptrai")
     st.button("Login", on_click=login_action)
