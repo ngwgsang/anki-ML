@@ -4,6 +4,7 @@ from utils.database import load_flashcards
 from utils.schedule import load_sarimax_model
 from components import render_statistics_page, render_collection_page, render_flashcard_page, render_login_page
 from utils.llms import GeminiFlash
+from utils.auth import logout_and_clear_state
 
 # st.set_page_config(
 #     page_title="Anki-ML",
@@ -13,6 +14,8 @@ from utils.llms import GeminiFlash
 # )
 
 # st.sidebar.balloons()
+
+st.sidebar.button("Logout", on_click=logout_and_clear_state)
 
 load_environment_variables()
 
@@ -39,16 +42,16 @@ if "flashcard_edit_mode" not in st.session_state:
     st.session_state.flashcard_edit_mode = {}
 if "feedback_list" not in st.session_state:
     st.session_state.feedback_list = []
-
+if "user_id" not in st.session_state:
+    st.session_state.user_id = ""
+if "ai_note_content" not in st.session_state:
+    st.session_state.ai_note_content = ""
 
 # Page routing
 if st.session_state.current_page == "login":
     render_login_page()
 elif st.session_state.current_page == "flashcard":
-    if st.session_state.flashcards is None:
-        st.session_state.flashcards = load_flashcards()
-    if st.session_state.sarimax_model is None:
-        st.session_state.sarimax_model = load_sarimax_model()
+    
     render_flashcard_page()
 elif st.session_state.current_page == "collection":
     render_collection_page()

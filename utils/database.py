@@ -24,7 +24,11 @@ supabase = init_supabase()
 # Load flashcards from Supabase
 def load_flashcards():
     try:
-        data = supabase.table('flashcards').select('*').execute()
+        user_id = st.session_state.get('user_id')
+        if not user_id:
+            raise ValueError("User is not authenticated.")
+
+        data = supabase.table('flashcards').select('*').eq('user_id', user_id).execute()
         flashcards = data.data if data.data else []
         today = pd.Timestamp.now()
         for card in flashcards:
@@ -47,7 +51,12 @@ def load_flashcards():
 # Add a new flashcard to Supabase
 def add_flashcard(word, meaning, example):
     try:
+        user_id = st.session_state.get('user_id')
+        if not user_id:
+            raise ValueError("User is not authenticated.")
+
         supabase.table('flashcards').insert({
+            "user_id": user_id,
             "word": word,
             "meaning": meaning,
             "example": example,
@@ -56,6 +65,34 @@ def add_flashcard(word, meaning, example):
     except Exception as e:
         st.error(f"Error adding flashcard: {e}")
 
+
+# Update a flashcard from Supabase
+def update_flashcard(card_id, new_word, new_meaning, new_example):
+    try:
+        user_id = st.session_state.get('user_id')
+        if not user_id:
+            raise ValueError("User is not authenticated.")
+
+        supabase.table('flashcards').update({
+            "word": new_word,
+            "meaning": new_meaning,
+            "example": new_example
+        }).eq('id', card_id).eq('user_id', user_id).execute()
+    except Exception as e:
+        st.error(f"Error updating flashcard: {e}")
+
+# Delete a flashcard from Supabase
+def delete_flashcard(card_id):
+    try:
+        user_id = st.session_state.get('user_id')
+        if not user_id:
+            raise ValueError("User is not authenticated.")
+
+        supabase.table('flashcards').delete().eq('id', card_id).eq('user_id', user_id).execute()
+        supabase.table('notes').delete().eq('flashcard_id', card_id).eq('user_id', user_id).execute()  # Remove associated notes
+    except Exception as e:
+        st.error(f"Error deleting flashcard or notes: {e}")
+
 # Update an existing flashcard's gold_time in Supabase
 def update_gold_time(card_id, gold_time):
     try:
@@ -63,29 +100,13 @@ def update_gold_time(card_id, gold_time):
     except Exception as e:
         st.error(f"Error updating gold_time: {e}")
 
-# Delete a flashcard from Supabase
-def delete_flashcard(card_id):
-    try:
-        supabase.table('flashcards').delete().eq('id', card_id).execute()
-        supabase.table('notes').delete().eq('flashcard_id', card_id).execute()  # Remove associated notes
-    except Exception as e:
-        st.error(f"Error deleting flashcard or notes: {e}")
-
-# Update a flashcard from Supabase
-def update_flashcard(card_id, new_word, new_meaning, new_example):
-    try:
-        supabase.table('flashcards').update({
-            "word": new_word,
-            "meaning": new_meaning,
-            "example": new_example
-        }).eq('id', card_id).execute()
-    except Exception as e:
-        st.error(f"Error deleting flashcard or notes: {e}")
-
 # Load all notes
 def load_all_notes():
     try:
-        data = supabase.table('notes').select('*').execute()
+        user_id = st.session_state.get('user_id')
+        if not user_id:
+            raise ValueError("User is not authenticated.")
+        data = supabase.table('notes').select('*').eq('user_id', user_id).execute()
         return data.data if data.data else []
     except Exception as e:
         st.error(f"Error fetching notes from Supabase: {e}")
@@ -94,7 +115,11 @@ def load_all_notes():
 # Load all notes associated with a flashcard
 def load_notes(flashcard_id):
     try:
-        data = supabase.table('notes').select('*').eq('flashcard_id', flashcard_id).execute()
+        user_id = st.session_state.get('user_id')
+        if not user_id:
+            raise ValueError("User is not authenticated.")
+
+        data = supabase.table('notes').select('*').eq('flashcard_id', flashcard_id).eq('user_id', user_id).execute()
         return data.data if data.data else []
     except Exception as e:
         st.error(f"Error fetching notes from Supabase: {e}")
@@ -103,7 +128,11 @@ def load_notes(flashcard_id):
 # Add a note for a flashcard
 def add_note(flashcard_id, title, content):
     try:
+        user_id = st.session_state.get('user_id')
+        if not user_id:
+            raise ValueError("User is not authenticated.")
         supabase.table('notes').insert({
+            "user_id": user_id,
             "flashcard_id": flashcard_id,
             "title": title,
             "content": content
@@ -114,34 +143,47 @@ def add_note(flashcard_id, title, content):
 # Delete a note from Supabase
 def delete_note(note_id):
     try:
-        supabase.table('notes').delete().eq('id', note_id).execute()
+        user_id = st.session_state.get('user_id')
+        if not user_id:
+            raise ValueError("User is not authenticated.")
+        supabase.table('notes').delete().eq('id', note_id).eq('user_id', user_id).execute()
     except Exception as e:
         st.error(f"Error deleting note: {e}")
 
 def update_note(note_id, new_title, new_content):
     try:
+        user_id = st.session_state.get('user_id')
+        if not user_id:
+            raise ValueError("User is not authenticated.")
         supabase.table('notes').update({
             "title": new_title,
             "content": new_content
-        }).eq('id', note_id).execute()
+        }).eq('id', note_id).eq('user_id', user_id).execute()
     except Exception as e:
         st.error(f"Error updating note: {e}")
         
-
 # Load study progress data
 def load_study_progress():
     try:
-        response = supabase.table('study_progress').select('*').order('date').execute()
+        user_id = st.session_state.get('user_id')
+        if not user_id:
+            raise ValueError("User is not authenticated.")
+
+        response = supabase.table('study_progress').select('*').eq('user_id', user_id).order('date').execute()
         return pd.DataFrame(response.data if response.data else [])
     except Exception as e:
         st.error(f"Error fetching study progress data: {e}")
         return pd.DataFrame()
 
+
 def update_study_progress(study_progress):
     today_str = datetime.now().strftime('%Y-%m-%d')
     try:
+        user_id = st.session_state.get('user_id')
+        if not user_id:
+            raise ValueError("User is not authenticated.")
         # Check if there's already an entry for today
-        response = supabase.table('study_progress').select('*').eq('date', today_str).execute()
+        response = supabase.table('study_progress').select('*').eq('user_id', user_id).eq('date', today_str).execute()
         if response.data:
             # Update existing entry
             existing_progress = response.data[0]
@@ -149,10 +191,11 @@ def update_study_progress(study_progress):
                 "good_count": existing_progress["good_count"] + study_progress['good_count'],
                 "normal_count": existing_progress["normal_count"] + study_progress['normal_count'],
                 "bad_count": existing_progress["bad_count"] + study_progress['bad_count']
-            }).eq('date', today_str).execute()
+            }).eq('user_id', user_id).eq('date', today_str).execute()
         else:
             # Insert new entry if no entry exists for today
             new_entry = {
+                "user_id": user_id,
                 "date": today_str,
                 "good_count": study_progress['good_count'],
                 "normal_count": study_progress['normal_count'],

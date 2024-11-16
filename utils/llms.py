@@ -6,10 +6,6 @@ import streamlit as st
 import typing_extensions as typing
 
 
-# Đọc các biến môi trường từ file .env
-load_dotenv()
-GEMINI_KEY = os.getenv("GEMINI_KEY")
-
 # class Flashcard(typing.TypedDict):
 #     word: str
 #     meaning: str
@@ -49,7 +45,7 @@ class GeminiFlash:
         ]
     
     def run(self, prompt):
-        genai.configure(api_key=GEMINI_KEY)
+        genai.configure(api_key=st.session_state.GEMINI_KEY)
         model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
             generation_config=self.generation_config,
@@ -58,7 +54,7 @@ class GeminiFlash:
         return response.text
     
     def run_json(self, prompt, response_schema=""):
-        genai.configure(api_key=GEMINI_KEY)
+        genai.configure(api_key=st.session_state.GEMINI_KEY)
         model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
             generation_config={
@@ -112,5 +108,6 @@ class GeminiFlash:
             f"- **Yêu cầu:** {st.session_state.new_note_content}\n"
             "Hãy tạo ghi chú ngắn gọn (không được lặp lại thông tin trên), và trình bày dưới dạng markdown bằng tiếng Việt."
         )
-        new_note_content = st.session_state.llm.run(prompt) 
-        return new_note_content
+        # st.toast("prompt: " + prompt)
+        return self.run(prompt) 
+    
