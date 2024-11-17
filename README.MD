@@ -1,4 +1,4 @@
 
 
 
-![ANKI-ML]("docs/anki-ml.png")
+![ANKI-ML]("./docs/anki-ml.png")
