@@ -35,3 +35,14 @@ FLASHCARD_VIEW_STYLE = """
     }
 </style>
 """
+
+
+BADGE_STYLE = """
+<style>
+    .user-badge{
+        padding: 20px;
+        background: #fff;
+        border-radius: 6px;
+    }
+</style>
+"""

@@ -1,27 +1,25 @@
 import streamlit as st
+import random
+
+random_icon = random.choice(["✨", "🪄", "🦄", "🌱", ""]) 
+st.set_page_config(
+    page_title="Anki-ML",
+    page_icon=random_icon,
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
+
 from utils.helpers import load_environment_variables
-from utils.database import load_flashcards
 from utils.schedule import load_sarimax_model
-from components import render_statistics_page, render_collection_page, render_flashcard_page, render_login_page
+from components import render_statistics_page, render_collection_page, render_flashcard_page, render_login_page, render_sidebar
 from utils.llms import GeminiFlash
-from utils.auth import logout_and_clear_state
 
-# st.set_page_config(
-#     page_title="Anki-ML",
-#     page_icon="✨",
-#     layout="centered",
-#     initial_sidebar_state="collapsed",
-# )
-
-# st.sidebar.balloons()
-
-st.sidebar.button("Logout", on_click=logout_and_clear_state)
 
 load_environment_variables()
 
 # Kiểm tra nếu chưa có dữ liệu flashcards trong session_state
 if "flashcards" not in st.session_state:
-    st.session_state.flashcards = load_flashcards()
+    st.session_state.flashcards = []
 if "sarimax_model" not in st.session_state:
     st.session_state.sarimax_model = load_sarimax_model()
 if "index" not in st.session_state:
@@ -46,12 +44,16 @@ if "user_id" not in st.session_state:
     st.session_state.user_id = ""
 if "ai_note_content" not in st.session_state:
     st.session_state.ai_note_content = ""
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = ""
+
+# App default
+render_sidebar()
 
 # Page routing
 if st.session_state.current_page == "login":
     render_login_page()
 elif st.session_state.current_page == "flashcard":
-    
     render_flashcard_page()
 elif st.session_state.current_page == "collection":
     render_collection_page()
