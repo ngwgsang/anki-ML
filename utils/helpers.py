@@ -126,3 +126,12 @@ def load_environment_variables():
         st.session_state.SUPABASE_URL = os.getenv('SUPABASE_URL')
         st.session_state.SUPABASE_KEY = os.getenv('SUPABASE_KEY')
         st.session_state.GEMINI_KEY = os.getenv('GEMINI_KEY')
+        try:
+            st.session_state.DEV_USER = os.getenv("DEV_USER")
+        except:
+            st.session_state.DEV_USER = ""
+        try:
+            st.session_state.DEV_PASSWORD = os.getenv("DEV_PASSWORD")
+        except:
+            st.session_state.DEV_PASSWORD = ""
+        

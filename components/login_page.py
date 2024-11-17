@@ -39,8 +39,8 @@ def render_login_page():
     st.title("Đăng nhập")
     col1, col2 = st.columns([3, 2])
     with col1:
-        st.text_input("Tên đăng nhập", key="username", max_chars=32)
-        st.text_input("Mật khẩu", type="password", key="password", max_chars=32)
+        st.text_input("Tên đăng nhập", key="username", value=st.session_state.DEV_USER, max_chars=32)
+        st.text_input("Mật khẩu", type="password", key="password", value=st.session_state.DEV_PASSWORD, max_chars=32)
         st.button("Đăng nhập", on_click=login_action , use_container_width=True, type="primary")
     with col2:
         render_grid()
