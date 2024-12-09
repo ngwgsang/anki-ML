@@ -16,9 +16,9 @@ class GeminiFlash:
     def __init__(self):
         self.generation_config = {
             "temperature": 1,
-            "top_p": 0.9,
-            "top_k": 1,
-            "max_output_tokens": 256,
+            "top_p": 0.5,
+            "top_k": 25,
+            "max_output_tokens": 1000,
             "response_mime_type": "text/plain",
         }
         self.safe_settings = [
@@ -58,10 +58,10 @@ class GeminiFlash:
         model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
             generation_config={
-                "temperature": 1,
+                "temperature": 0.5,
                 "top_p": 1,
-                "top_k": 1,
-                "max_output_tokens": 512,
+                "top_k": 25,
+                "max_output_tokens": 1000,
                 "response_mime_type": "application/json",
                 # "response_schema": response_schema
             },
@@ -78,7 +78,7 @@ class GeminiFlash:
             "N4: Basic level, with words for everyday conversation and simple reading materials.\n"
             "N5: Beginner level, covering fundamental vocabulary for simple communication.\n"
             
-            f"Generate 3 - 5 flashcard at level {level} from the TEXT i provided\n",
+            f"Generate some flashcard at level {level} from the TEXT i provided\n",
             f"\n\nTEXT: {plain_text}"
             "Rule 1: you will receive a word in Japanese and its meaning in Vietnamese.\n"
             "Rule 2: Response must be include keys: word, meaning, example.\n"
@@ -95,11 +95,11 @@ class GeminiFlash:
         card = st.session_state.flashcards[st.session_state.index]
         prompt = (
             "Bạn là một trợ lý hữu ích, được thiết kế để tạo các ghi chú ngắn gọn và dễ hiểu cho flashcard học ngôn ngữ.\n"
-            "Với mỗi flashcard, bạn sẽ nhận được một từ và nghĩa của từ đó.\n"
-            "Nhiệm vụ của bạn là tạo một ghi chú ngắn giúp người dùng ghi nhớ từ và cách sử dụng từ đó trong ngữ cảnh thực tế.\n"
-            "Tập trung vào các ví dụ sử dụng từ trong thực tế để người học dễ dàng áp dụng.\n"
-            "Đảm bảo rằng các ghi chú của bạn rõ ràng, dễ hiểu, và viết bằng tiếng Việt.\n\n"
-            "Đối với cách đọc thì hãy dùng hiragana để thể hiện, không được sử dụng romanji hay Tiếng Việt.\n\n"
+            # "Với mỗi flashcard, bạn sẽ nhận được một từ và nghĩa của từ đó.\n"
+            # "Nhiệm vụ của bạn là tạo một ghi chú ngắn giúp người dùng ghi nhớ từ và cách sử dụng từ đó trong ngữ cảnh thực tế.\n"
+            # "Tập trung vào các ví dụ sử dụng từ trong thực tế để người học dễ dàng áp dụng.\n"
+            # "Đảm bảo rằng các ghi chú của bạn rõ ràng, dễ hiểu, và viết bằng tiếng Việt.\n\n"
+            # "Đối với cách đọc thì hãy dùng hiragana để thể hiện, không được sử dụng romanji hay Tiếng Việt.\n\n"
             "### THÔNG TIN HIỆN TẠI CỦA FLASHCARD\n"
             f"- **Từ:** {card['word']}\n"
             f"- **Nghĩa:** {card['meaning']}\n"
@@ -107,6 +107,7 @@ class GeminiFlash:
             "### NHIỆM VỤ\n"
             f"- **Yêu cầu:** {st.session_state.new_note_content}\n"
             "Hãy tạo ghi chú ngắn gọn (không được lặp lại thông tin trên), và trình bày dưới dạng markdown bằng tiếng Việt."
+            "Note ngắn gọn không ghi tiêu đề, chỉ ghi plain text hoặc bôi đen thôi"
         )
         # st.toast("prompt: " + prompt)
         return self.run(prompt) 

@@ -4,6 +4,7 @@ from utils.helpers import add_furigana, add_highlight, calculate_time_until_gold
 from utils.database import load_flashcards, load_notes, delete_note, update_note, update_gold_time, add_note, update_study_progress
 from utils.navigate import next_card, prev_card, go_to_collection_page, go_to_statistics_page
 from utils.schedule import predict_next_gold_time
+from utils.audio import generate_audio
 from datetime import datetime, timedelta
 import pandas as pd
 import time
@@ -119,25 +120,28 @@ def save_note_action():
     flashcard_id = st.session_state.current_card_id
     new_title = st.session_state.new_note_title.strip()
     new_content = st.session_state.new_note_content.strip()
-    if new_title and new_content:
-        add_note(flashcard_id, new_title, new_content)
+    if new_content:
+        if new_title == "":
+            add_note(flashcard_id, "🌱 Note", new_content)
+        else:
+            add_note(flashcard_id, new_title, new_content)
         st.session_state.new_note_title = ""
         st.session_state.new_note_content = ""
+    else:
+        st.toast("Vui lòng nhập nội dung")
 
 def take_note_with_ai_action():
-    if st.session_state["new_note_title"] and st.session_state["new_note_content"]:
-        # try:
-            # st.toast(st.session_state.flashcards[st.session_state.index])
+    if st.session_state["new_note_content"]:
+        if st.session_state["new_note_title"] == "":
+            st.session_state["new_note_title"] = "🤖 Note AI"
+        
         note = st.session_state.llm.take_note_action()
-            # st.write(note)
-        # st.session_state["new_note_content"] = note
         add_note(st.session_state.current_card_id, st.session_state.new_note_title.strip(), note)
-            # st.session_state.new_note_title = ""
-            # st.session_state.new_note_content = ""  # Xóa nội dung sau khi gửi
-        # except Exception as e:
-        #     st.error(f"Lỗi khi lưu ghi chú vào Supabase: {e}")
+
+        st.session_state.new_note_title = ""
+        st.session_state.new_note_content = ""
     else:
-        st.toast("Vui lòng nhập đầy đủ")
+        st.toast("Vui lòng nhập nội dung")
 
 # Hàm cập nhật ghi chú và session state
 def save_edit_note_action(note_id):
@@ -165,7 +169,7 @@ def render_flashcard_page():
     if len(st.session_state.flashcards) > 0: 
         card = st.session_state.flashcards[st.session_state.index]
         st.session_state.current_card_id = card['id']
-
+        
         # Tùy chỉnh CSS cho hộp thẻ và nút
         st.markdown(FLASHCARD_VIEW_STYLE, unsafe_allow_html=True)
 
@@ -173,7 +177,12 @@ def render_flashcard_page():
         if st.session_state.show_back:
             example_text = add_highlight(add_furigana(card['example']), card['word'])
             st.markdown(f"""<div class='flashcard-box'>{add_furigana(card['word'])}<br>{card['meaning']}<br>{example_text}</div>""", unsafe_allow_html=True)
-            
+            try:
+                audio_data = generate_audio(card['word'])
+                st.audio(audio_data, format="audio/mp3")
+            except:
+                st.warning("Tạm thời không thể tạo audio 🙇‍♂️")
+
             # Hiển thị các lựa chọn phản hồi sau khi lật thẻ
             with st.container():
                 col2, col3, col4 = st.columns(3)
